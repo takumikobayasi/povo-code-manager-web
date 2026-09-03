@@ -620,14 +620,11 @@ function getConfiguredWebPovoTarget(preferred) {
 }
 
 function launchAndroidPovo() {
-  // Chromeのユーザー操作中に、POVOの公式アプリリンクをAndroidへ渡す。
-  // 公式のプロモコード直リンクは公開されていないため、アプリのホームを開く。
-  const fallback = 'https://play.google.com/store/apps/details?id=' + POVO_PACKAGE;
-  const intent = 'intent://kddi-povo.app.link/#Intent;scheme=https;package='
+  // Androidのパッケージを指定したリンクを、ユーザー操作として実行する。
+  // ブラウザの公式アプリリンク判定に依存せず、インストール済みPOVOを直接起動する。
+  const intent = 'intent://open#Intent;package='
     + POVO_PACKAGE
-    + ';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE'
-    + ';S.browser_fallback_url=' + encodeURIComponent(fallback)
-    + ';end';
+    + ';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end';
 
   const link = document.createElement('a');
   link.href = intent;
@@ -1123,7 +1120,6 @@ function bindModalDismiss(dialog) {
 function bindEvents() {
   $('useCodeBtn').addEventListener('click', useNextCode);
   $('openPovoBtn').addEventListener('click', () => openPovoApp());
-  $('povoShortcutBtn').addEventListener('click', () => openPovoApp());
   $('undoBtn').addEventListener('click', undoLastUse);
   $('copyAgainBtn').addEventListener('click', async () => {
     if (!state.lastCopiedCode) return;
