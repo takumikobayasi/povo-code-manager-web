@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#ff6b00">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="POVOコード">
+  <title>POVO コードカウンター</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-top">
+        <h1>POVO コードカウンター</h1>
+        <button type="button" class="icon-btn" id="settingsBtn" aria-label="設定">⚙</button>
+      </div>
+      <p class="subtitle">ボタン1つでコピー → POVOアプリを開く</p>
+    </header>
+
+    <main class="main">
+      <section class="hero-card" id="activeSetCard" hidden>
+        <div class="hero-label">使用中のコードセット</div>
+        <h2 class="hero-title" id="activeSetName">—</h2>
+        <p class="hero-expiry" id="activeSetExpiry" hidden></p>
+        <div class="counter">
+          <div class="counter-block">
+            <span class="counter-value" id="usedCount">0</span>
+            <span class="counter-label">使用済み</span>
+          </div>
+          <div class="counter-divider">/</div>
+          <div class="counter-block">
+            <span class="counter-value" id="totalCount">0</span>
+            <span class="counter-label">合計</span>
+          </div>
+          <div class="counter-block remaining">
+            <span class="counter-value" id="remainingCount">0</span>
+            <span class="counter-label">残り</span>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-large" id="useCodeBtn">
+          <span class="btn-icon">📋</span>
+          コードを使う
+        </button>
+        <p class="hint" id="useHint">タップでコピーして使用時刻を記録します</p>
+
+        <div class="quick-actions">
+          <button type="button" class="btn btn-ghost btn-small" id="undoBtn">↩ 取り消し</button>
+          <button type="button" class="btn btn-ghost btn-small" id="copyAgainBtn">再コピー</button>
+          <button type="button" class="btn btn-ghost btn-small" id="openPovoBtn">POVOを開く</button>
+        </div>
+
+        <div class="use-status" id="activeUseStatus" hidden>
+          <div class="use-status-row">
+            <span class="use-status-label">最終使用</span>
+            <span class="use-status-value" id="lastUseTime">—</span>
+          </div>
+          <div class="use-status-row highlight">
+            <span class="use-status-label">おおよそまで</span>
+            <span class="use-status-value" id="lastValidUntil">—</span>
+          </div>
+        </div>
+
+        <div class="last-code" id="lastCodeBox" hidden>
+          <span class="last-code-label">直前にコピーしたコード</span>
+          <code id="lastCodeValue"></code>
+        </div>
+
+      </section>
+
+      <section class="empty-state" id="emptyState">
+        <div class="empty-icon">📦</div>
+        <h2>コードセットがありません</h2>
+        <p>メールからコピーしたコードを登録すると、残り回数を自動で管理できます。</p>
+        <button type="button" class="btn btn-primary" id="emptyAddBtn">コードを登録する</button>
+      </section>
+
+      <section class="sets-section">
+        <div class="section-header">
+          <h3>コードセット一覧</h3>
+          <button type="button" class="btn btn-secondary btn-small" id="addSetBtn">＋ 追加</button>
+        </div>
+        <ul class="set-list" id="setList"></ul>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- 追加モーダル -->
+  <dialog class="modal" id="addModal">
+    <form method="dialog" class="modal-content" id="addForm">
+      <div class="modal-header">
+        <h2>コードを登録</h2>
+        <button type="button" class="icon-btn" id="closeAddModal" aria-label="閉じる">✕</button>
+      </div>
+
+      <label class="field">
+        <span>コード期限（入力期限）</span>
+        <input type="text" id="expiresAt" placeholder="例: 2026/12/31" autocomplete="off">
+      </label>
+
+      <label class="field">
+        <span>コードを貼り付け</span>
+        <textarea id="codesInput" rows="8" placeholder="メール本文をそのまま貼り付けてOK&#10;40回分など同一コードの場合も自動検出します&#10;&#10;例:&#10;ABCD-1234-EFGH&#10;または 40回分のメール本文"></textarea>
+      </label>
+
+      <label class="field" id="maxUsesField" hidden>
+        <span>使用可能回数（40回分なら 40）</span>
+        <input type="number" id="maxUsesInput" min="1" max="999" value="1" inputmode="numeric" placeholder="例: 40">
+      </label>
+
+      <div class="parsed-preview" id="parsedPreview" hidden>
+        <span id="parsedSummary">0 回分を検出しました</span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="cancelAdd">キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="saveSetBtn" disabled>登録する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 設定モーダル -->
+  <dialog class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>設定</h2>
+        <button type="button" class="icon-btn" id="closeSettingsModal" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="settings-section" id="settingsSetSection" hidden>
+        <h3 class="settings-section-title">選択中のコードセット</h3>
+
+        <div class="duration-edit-row">
+          <span class="duration-edit-label">使用チケット</span>
+          <div class="duration-edit-fields">
+            <label class="field count-edit-field">
+              <span>日</span>
+              <div class="count-edit-input">
+                <input type="number" id="settingsValidDays" min="0" max="365" inputmode="numeric" value="0">
+                <span>日</span>
+              </div>
+            </label>
+            <label class="field count-edit-field">
+              <span>時間</span>
+              <div class="count-edit-input">
+                <input type="number" id="settingsValidHours" min="0" max="999" inputmode="numeric" value="24">
+                <span>時間</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>コード期限</span>
+          <input type="text" id="settingsExpiresAt" placeholder="例: 2026/12/31" autocomplete="off">
+        </label>
+
+        <div class="count-edit-row">
+          <label class="field count-edit-field">
+            <span>使用済み</span>
+            <div class="count-edit-input">
+              <input type="number" id="settingsUsed" min="0" max="999" inputmode="numeric">
+              <span>回</span>
+            </div>
+          </label>
+          <label class="field count-edit-field">
+            <span>残り</span>
+            <div class="count-edit-input">
+              <input type="number" id="settingsRemaining" min="0" max="999" inputmode="numeric">
+              <span>回</span>
+            </div>
+          </label>
+          <label class="field count-edit-field">
+            <span>合計</span>
+            <div class="count-edit-input">
+              <input type="number" id="settingsTotal" min="1" max="999" inputmode="numeric">
+              <span>回</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <h3 class="settings-section-title">アプリ設定</h3>
+
+      <label class="field checkbox-field">
+        <input type="checkbox" id="autoOpenApp" checked>
+        <span>コードコピー後にPOVOアプリを自動で開く</span>
+      </label>
+
+      <label class="field checkbox-field">
+        <input type="checkbox" id="confirmUse" checked>
+        <span>使用時に確認ダイアログを表示</span>
+      </label>
+
+      <h3 class="settings-section-title">POVOアプリの遷移先</h3>
+
+      <label class="field">
+        <span>プロモコード画面へのリンク（空なら自動判定）</span>
+        <input type="text" id="povoTarget" placeholder="例: povo://promocode" autocomplete="off" spellcheck="false">
+      </label>
+
+      <p class="hint" id="povoTargetStatus">前回開けた遷移先: —</p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-small" id="testPovoTargetBtn">開いて試す</button>
+        <button type="button" class="btn btn-secondary btn-small" id="findPovoTargetBtn">候補を探す</button>
+      </div>
+
+      <ul class="target-list" id="povoTargetList" hidden></ul>
+
+      <div class="info-box">
+        <strong>使い方</strong>
+        <ol>
+          <li>購入メールからコードをコピーして登録</li>
+          <li>「コードを使う」をタップ（コピー＋プロモコード画面へ移動）</li>
+          <li>貼り付け → 利用する</li>
+        </ol>
+      </div>
+
+      <div class="modal-actions modal-actions-bottom">
+        <button type="button" class="btn btn-primary" id="closeSettingsDone">閉じる</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
