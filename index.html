@@ -7,9 +7,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="POVOコード">
-  <title>POVO コードカウンター Web v1.0.2</title>
+  <title>POVO コードカウンター Web v1.0.3</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=1.0.2">
+  <link rel="stylesheet" href="style.css?v=1.0.3">
 </head>
 <body>
   <div class="app">
@@ -17,12 +17,12 @@
       <div class="header-top">
         <div class="header-heading">
           <h1>POVO コードカウンター</h1>
-          <div class="app-version" id="appVersion">Web v1.0.2</div>
+          <div class="app-version" id="appVersion">Web v1.0.3</div>
         </div>
         <button type="button" class="icon-btn" id="settingsBtn" aria-label="設定">⚙</button>
       </div>
       <p class="subtitle">ボタン1つでコピー → POVOアプリを開く</p>
-      <button type="button" class="btn btn-small povo-shortcut-btn" id="povoShortcutBtn">📲 POVOを直接開く</button>
+      <a class="btn btn-small povo-shortcut-btn" id="povoShortcutBtn" href="intent://open#Intent;package=com.kddi.kdla.jp;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end">📲 POVOを直接開く</a>
     </header>
 
     <main class="main">
@@ -237,6 +237,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=1.0.2"></script>
+  <script src="app.js?v=1.0.3"></script>
 </body>
 </html>
