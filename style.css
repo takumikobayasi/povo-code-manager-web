@@ -809,3 +809,15 @@ body {
     background: #333;
   }
 }
+
+.povo-shortcut-btn {
+  width: 100%;
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.povo-shortcut-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
