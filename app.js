@@ -612,8 +612,6 @@ function getConfiguredWebPovoTarget(preferred) {
     preferred,
     state.settings.povoTarget,
     state.settings.povoTargetLastOk,
-    // Android版と同じプロモコード画面のDeep Linkを最初に試す
-    POVO_TARGET_CANDIDATES[0],
   ];
 
   return candidates
