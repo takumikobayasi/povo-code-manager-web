@@ -29,6 +29,7 @@ const state = {
 const $ = (id) => document.getElementById(id);
 
 const els = {
+  appVersion: $('appVersion'),
   activeSetCard: $('activeSetCard'),
   emptyState: $('emptyState'),
   activeSetName: $('activeSetName'),
@@ -164,24 +165,29 @@ function detectMaxUses(text) {
 function parseCodes(text) {
   if (!text?.trim()) return [];
 
-  const candidates = text
-    .split(/[\n\r,、\t;；]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // メールアドレスやURL中の英数字をコードとして拾わない。
+  const sanitized = text
+    .replace(/\bhttps?:\/\/[^\s<>"']+/gi, ' ')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, ' ');
+  const matches = sanitized.match(/[A-Za-z0-9]{4,}(?:-[A-Za-z0-9]{4,})+|[A-Za-z0-9]{8,64}/g) || [];
 
   const codes = [];
   const seen = new Set();
 
-  for (const line of candidates) {
-    const matches = line.match(/[A-Za-z0-9]{4,}(?:[-\s][A-Za-z0-9]{4,})*/g);
-    if (matches) {
-      for (const m of matches) {
-        const normalized = m.replace(/\s+/g, '-').toUpperCase();
-        if (normalized.length >= 8 && !seen.has(normalized)) {
-          seen.add(normalized);
-          codes.push(normalized);
-        }
-      }
+  for (const match of matches) {
+    const normalized = match.toUpperCase();
+    const compact = normalized.replace(/-/g, '');
+
+    // POVOコードは英字と数字の両方を含むものだけを候補にする。
+    if (
+      compact.length >= 8
+      && compact.length <= 64
+      && /[A-Z]/.test(compact)
+      && /\d/.test(compact)
+      && !seen.has(normalized)
+    ) {
+      seen.add(normalized);
+      codes.push(normalized);
     }
   }
 
@@ -259,10 +265,18 @@ function migrateSetMaxUses(set) {
 }
 
 function detectValidHours(text) {
+  // 「24時間以内に確認」などの案内文より商品名の期間を優先する。
+  const productDuration = text.match(/データ使い放題[^\n\r]{0,40}?(\d+)\s*日間?/)
+    || text.match(/(\d+)\s*日間?[^\n\r]{0,40}?データ使い放題/);
+  if (productDuration) {
+    const hours = Number(productDuration[1]) * 24;
+    if (hours > 0 && hours <= 24 * 365) return hours;
+  }
+
   const patterns = [
-    [/(\d+)\s*時間/, (n) => Number(n)],
     [/(\d+)\s*日間?/, (n) => Number(n) * 24],
     [/(\d+)\s*週間?/, (n) => Number(n) * 24 * 7],
+    [/(\d+)\s*時間/, (n) => Number(n)],
   ];
 
   for (const [pattern, convert] of patterns) {
@@ -567,6 +581,15 @@ function isNativeApp() {
   return Boolean(window.Capacitor?.isNativePlatform?.());
 }
 
+function renderAppVersion() {
+  const versions = window.POVO_CODE_MANAGER_VERSION || {};
+  const label = isNativeApp()
+    ? `Android v${versions.android || '—'}`
+    : `Web v${versions.web || '—'}`;
+  els.appVersion.textContent = label;
+  document.title = `POVO コードカウンター ${label}`;
+}
+
 async function copyToClipboard(text) {
   if (isNativeApp() && window.Capacitor.Plugins?.Clipboard) {
     try {
@@ -620,11 +643,15 @@ function getConfiguredWebPovoTarget(preferred) {
 }
 
 function launchAndroidPovo() {
-  // Androidのパッケージを指定したリンクを、ユーザー操作として実行する。
-  // ブラウザの公式アプリリンク判定に依存せず、インストール済みPOVOを直接起動する。
   const intent = 'intent://open#Intent;package='
     + POVO_PACKAGE
     + ';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end';
+
+  let appOpened = false;
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') appOpened = true;
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
 
   const link = document.createElement('a');
   link.href = intent;
@@ -634,12 +661,13 @@ function launchAndroidPovo() {
   link.click();
   link.remove();
 
-  showToast('POVOアプリを開きました。ホーム画面下部の「プロモコード」をタップしてください');
+  showToast('POVOアプリの起動を試しています…');
   setTimeout(() => {
-    if (document.visibilityState !== 'hidden') {
-      showToast('開かない場合は、このページをChromeで開いてください');
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (!appOpened && document.visibilityState !== 'hidden') {
+      showToast('POVOを開けませんでした。Chromeで開くか、手動で起動してください', 4000);
     }
-  }, 1500);
+  }, 1800);
 }
 
 async function openPovoApp(preferred) {
@@ -650,7 +678,6 @@ async function openPovoApp(preferred) {
       });
       const target = result?.target;
 
-      // 通常起動に落ちた場合は覚えない（次回また候補を試す）
       if (target && target !== 'launcher' && state.settings.povoTargetLastOk !== target) {
         state.settings.povoTargetLastOk = target;
         save();
@@ -673,7 +700,7 @@ async function openPovoApp(preferred) {
     const directTarget = getConfiguredWebPovoTarget(preferred);
     if (!directTarget) {
       launchAndroidPovo();
-      return 'launcher';
+      return 'launcher-attempted';
     }
 
     let appOpened = false;
@@ -681,26 +708,31 @@ async function openPovoApp(preferred) {
       if (document.visibilityState === 'hidden') appOpened = true;
     };
 
-    document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
-    // a要素のクリックで発行し、Chromeのユーザー操作としてDeep Linkを渡す。
+    document.addEventListener('visibilitychange', onVisibilityChange);
     const directLink = document.createElement('a');
     directLink.href = directTarget;
     directLink.hidden = true;
     document.body.appendChild(directLink);
     directLink.click();
     directLink.remove();
+    showToast('POVOのコード画面を開いています…');
 
     setTimeout(() => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (appOpened || document.visibilityState === 'hidden') return;
       launchAndroidPovo();
     }, 1500);
-  } else if (isIOS) {
-    window.location.href = 'https://apps.apple.com/jp/app/id1554037102';
+    return 'direct-attempted';
+  }
+
+  if (isIOS) {
+    showToast('iPhoneではPOVOアプリを手動で開いてください');
   } else {
     showToast('Androidスマホで開くとPOVOアプリを起動できます');
   }
+  return null;
 }
+
 async function useNextCode() {
   const set = getActiveSet();
   if (!set) return;
@@ -717,27 +749,42 @@ async function useNextCode() {
     if (!confirm(msg)) return;
   }
 
-  // Web版ではコピー処理を開始した直後にIntentを発行し、
-  // ブラウザのユーザー操作扱いが切れにくいようにする。
-  const copyPromise = copyToClipboard(next.code);
-  if (state.settings.autoOpenApp && !isNativeApp()) {
-    openPovoApp();
-  }
-  const copied = await copyPromise;
-  if (!copied) {
-    showToast('コピーに失敗しました。手動でコピーしてください');
-    return;
-  }
-
+  // 画面遷移でJavaScriptが止まっても記録が残るよう、先に同期保存する。
+  const previous = {
+    usedCount: next.usedCount,
+    lastUse: set.lastUse ? { ...set.lastUse } : null,
+    lastCopiedCode: state.lastCopiedCode,
+  };
   const codeIndex = set.codes.indexOf(next);
-  set.lastUse = { usedAt: new Date().toISOString(), codeIndex };
+  const usedAt = new Date().toISOString();
   next.usedCount = Math.min(next.maxUses, next.usedCount + 1);
   ensureEntryShape(next);
+  set.lastUse = { usedAt, codeIndex };
   state.lastCopiedCode = next.code;
   save();
   updateUI();
 
-  showToast('コピーしました！ プロモコード画面で貼り付けてください');
+  // クリップボードとIntentはタップ操作の直後に開始する。
+  const copyPromise = copyToClipboard(next.code);
+  if (state.settings.autoOpenApp && !isNativeApp()) {
+    openPovoApp();
+  }
+
+  const copied = await copyPromise;
+  if (!copied) {
+    // この操作以降に別の使用がなければ、安全に元へ戻す。
+    if (set.lastUse?.usedAt === usedAt) {
+      next.usedCount = previous.usedCount;
+      set.lastUse = previous.lastUse;
+      state.lastCopiedCode = previous.lastCopiedCode;
+      save();
+      updateUI();
+    }
+    showToast('コピーに失敗したため、使用記録を戻しました');
+    return;
+  }
+
+  showToast('コピー・使用記録を完了しました');
 
   if (state.settings.autoOpenApp && isNativeApp()) {
     setTimeout(() => openPovoApp(), 400);
@@ -1179,6 +1226,7 @@ async function initNativeUi() {
 }
 
 load();
+renderAppVersion();
 bindEvents();
 updateUI();
 initNativeUi();
