@@ -620,16 +620,29 @@ function getConfiguredWebPovoTarget(preferred) {
 }
 
 function launchAndroidPovo() {
-  // Android Chromeからの起動は、ユーザー操作直後に標準Intentを使う。
-  const intent = 'intent://#Intent;package=' + POVO_PACKAGE + ';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end';
-  window.location.href = intent;
-  showToast('POVOアプリを開きました。ホーム画面下部の「プロモコード」をタップしてください');
+  // Chromeのユーザー操作中に、POVOの公式アプリリンクをAndroidへ渡す。
+  // 公式のプロモコード直リンクは公開されていないため、アプリのホームを開く。
+  const fallback = 'https://play.google.com/store/apps/details?id=' + POVO_PACKAGE;
+  const intent = 'intent://kddi-povo.app.link/#Intent;scheme=https;package='
+    + POVO_PACKAGE
+    + ';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE'
+    + ';S.browser_fallback_url=' + encodeURIComponent(fallback)
+    + ';end';
 
+  const link = document.createElement('a');
+  link.href = intent;
+  link.rel = 'noopener';
+  link.hidden = true;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  showToast('POVOアプリを開きました。ホーム画面下部の「プロモコード」をタップしてください');
   setTimeout(() => {
     if (document.visibilityState !== 'hidden') {
-      window.location.href = 'https://play.google.com/store/apps/details?id=' + POVO_PACKAGE;
+      showToast('開かない場合は、このページをChromeで開いてください');
     }
-  }, 1800);
+  }, 1500);
 }
 
 async function openPovoApp(preferred) {
