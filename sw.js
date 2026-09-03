@@ -1,4 +1,4 @@
-const CACHE = 'povo-code-manager-v1.1';
+const CACHE = 'povo-code-manager-v1.2';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
