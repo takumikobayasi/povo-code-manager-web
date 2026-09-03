@@ -7,20 +7,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="POVOコード">
-  <title>POVO コードカウンター</title>
+  <title>POVO コードカウンター Web v1.0.1</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.0.1">
 </head>
 <body>
   <div class="app">
     <header class="header">
       <div class="header-top">
-        <h1>POVO コードカウンター</h1>
+        <div class="header-heading">
+          <h1>POVO コードカウンター</h1>
+          <div class="app-version" id="appVersion">Web v1.0.1</div>
+        </div>
         <button type="button" class="icon-btn" id="settingsBtn" aria-label="設定">⚙</button>
       </div>
       <p class="subtitle">ボタン1つでコピー → POVOアプリを開く</p>
       <button type="button" class="btn btn-small povo-shortcut-btn" id="povoShortcutBtn">📲 POVOを直接開く</button>
-      <div class="app-version" id="appVersion">Web v1.0.1</div>
     </header>
 
     <main class="main">
@@ -235,6 +237,6 @@
     </div>
   </dialog>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1.0.1"></script>
 </body>
 </html>
