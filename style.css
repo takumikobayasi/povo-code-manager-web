@@ -690,6 +690,23 @@ body {
   margin-bottom: 14px;
 }
 
+.parsed-code-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 28px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.parsed-code-list li {
+  overflow-wrap: anywhere;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
 .modal-actions {
   display: flex;
   gap: 8px;
