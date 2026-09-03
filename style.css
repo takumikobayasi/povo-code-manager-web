@@ -833,3 +833,12 @@ body {
   letter-spacing: 0.03em;
   opacity: 0.9;
 }
+
+
+.header-heading {
+  min-width: 0;
+}
+
+.header-heading .app-version {
+  margin-top: 6px;
+}
