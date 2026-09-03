@@ -54,6 +54,7 @@ const els = {
   codesInput: $('codesInput'),
   parsedPreview: $('parsedPreview'),
   parsedSummary: $('parsedSummary'),
+  parsedCodesList: $('parsedCodesList'),
   maxUsesField: $('maxUsesField'),
   maxUsesInput: $('maxUsesInput'),
   saveSetBtn: $('saveSetBtn'),
@@ -606,6 +607,31 @@ function buildPovoTargets(preferred) {
   return list;
 }
 
+function getConfiguredWebPovoTarget(preferred) {
+  const candidates = [
+    preferred,
+    state.settings.povoTarget,
+    state.settings.povoTargetLastOk,
+  ];
+
+  return candidates
+    .map((target) => (target || '').trim())
+    .find((target) => /^(povo:\/\/|https:\/\/kddi-povo\.app\.link\/)/i.test(target)) || '';
+}
+
+function launchAndroidPovo() {
+  // Android Chromeからの起動は、ユーザー操作直後に標準Intentを使う。
+  const intent = 'intent://#Intent;package=' + POVO_PACKAGE + ';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end';
+  window.location.href = intent;
+  showToast('POVOアプリを開きました。ホーム画面下部の「プロモコード」をタップしてください');
+
+  setTimeout(() => {
+    if (document.visibilityState !== 'hidden') {
+      window.location.href = 'https://play.google.com/store/apps/details?id=' + POVO_PACKAGE;
+    }
+  }, 1800);
+}
+
 async function openPovoApp(preferred) {
   if (isNativeApp() && window.Capacitor.Plugins?.PovoLauncher) {
     try {
@@ -634,12 +660,12 @@ async function openPovoApp(preferred) {
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
   if (isAndroid) {
-    // Web版では、公開されているディープリンクだけをブラウザから試す。
-    // POVOアプリ側が未対応の場合は、通常起動へフォールバックする。
-    const webTargets = buildPovoTargets(preferred).filter((target) =>
-      /^(povo:\/\/|https:\/\/kddi-povo\.app\.link\/)/i.test(target)
-    );
-    const directTarget = webTargets[0] || 'povo://promocode';
+    const directTarget = getConfiguredWebPovoTarget(preferred);
+    if (!directTarget) {
+      launchAndroidPovo();
+      return 'launcher';
+    }
+
     let appOpened = false;
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') appOpened = true;
@@ -651,17 +677,8 @@ async function openPovoApp(preferred) {
     setTimeout(() => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (appOpened || document.visibilityState === 'hidden') return;
-
-      const intent = `intent://open#Intent;package=${POVO_PACKAGE};action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end`;
-      window.location.href = intent;
-      showToast('POVOアプリを開きました。ホーム画面下部の「プロモコード」をタップしてください');
-
-      setTimeout(() => {
-        if (document.visibilityState !== 'hidden') {
-          window.open(`https://play.google.com/store/apps/details?id=${POVO_PACKAGE}`, '_blank');
-        }
-      }, 1500);
-    }, 1200);
+      launchAndroidPovo();
+    }, 1500);
   } else if (isIOS) {
     window.location.href = 'https://apps.apple.com/jp/app/id1554037102';
   } else {
@@ -684,7 +701,13 @@ async function useNextCode() {
     if (!confirm(msg)) return;
   }
 
-  const copied = await copyToClipboard(next.code);
+  // Web版ではコピー処理を開始した直後にIntentを発行し、
+  // ブラウザのユーザー操作扱いが切れにくいようにする。
+  const copyPromise = copyToClipboard(next.code);
+  if (state.settings.autoOpenApp && !isNativeApp()) {
+    openPovoApp();
+  }
+  const copied = await copyPromise;
   if (!copied) {
     showToast('コピーに失敗しました。手動でコピーしてください');
     return;
@@ -700,7 +723,7 @@ async function useNextCode() {
 
   showToast('コピーしました！ プロモコード画面で貼り付けてください');
 
-  if (state.settings.autoOpenApp) {
+  if (state.settings.autoOpenApp && isNativeApp()) {
     setTimeout(() => openPovoApp(), 400);
   }
 }
@@ -742,6 +765,8 @@ function openAddModal() {
   els.maxUsesInput.value = '1';
   els.maxUsesField.hidden = true;
   els.parsedPreview.hidden = true;
+  els.parsedCodesList.innerHTML = '';
+  els.parsedCodesList.hidden = true;
   els.saveSetBtn.disabled = true;
   els.addModal.showModal();
   setTimeout(() => els.codesInput.focus(), 100);
@@ -793,12 +818,24 @@ function getRegistrationPreview() {
   };
 }
 
+function renderParsedCodes(codes) {
+  els.parsedCodesList.innerHTML = '';
+  for (const code of codes) {
+    const li = document.createElement('li');
+    li.textContent = code;
+    els.parsedCodesList.appendChild(li);
+  }
+  els.parsedCodesList.hidden = codes.length === 0;
+}
+
 function onRegistrationInput() {
   autofillFromPastedText(els.codesInput.value);
   const preview = getRegistrationPreview();
 
   if (!preview.valid) {
     els.parsedPreview.hidden = true;
+    els.parsedCodesList.innerHTML = '';
+    els.parsedCodesList.hidden = true;
     els.maxUsesField.hidden = true;
     els.saveSetBtn.disabled = true;
     return;
@@ -806,6 +843,7 @@ function onRegistrationInput() {
 
   els.parsedPreview.hidden = false;
   els.parsedSummary.textContent = preview.summary;
+  renderParsedCodes(preview.parsed.codes);
   els.maxUsesField.hidden = !preview.showMaxUses;
   if (preview.showMaxUses) {
     if (preview.parsed.detectedMaxUses && preview.parsed.detectedMaxUses > 1) {
@@ -816,7 +854,6 @@ function onRegistrationInput() {
   }
   els.saveSetBtn.disabled = false;
 }
-
 function saveNewSet(e) {
   e.preventDefault();
 
