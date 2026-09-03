@@ -1117,6 +1117,7 @@ function bindModalDismiss(dialog) {
 function bindEvents() {
   $('useCodeBtn').addEventListener('click', useNextCode);
   $('openPovoBtn').addEventListener('click', () => openPovoApp());
+  $('povoShortcutBtn').addEventListener('click', () => openPovoApp());
   $('undoBtn').addEventListener('click', undoLastUse);
   $('copyAgainBtn').addEventListener('click', async () => {
     if (!state.lastCopiedCode) return;
