@@ -612,6 +612,8 @@ function getConfiguredWebPovoTarget(preferred) {
     preferred,
     state.settings.povoTarget,
     state.settings.povoTargetLastOk,
+    // Android版と同じプロモコード画面のDeep Linkを最初に試す
+    POVO_TARGET_CANDIDATES[0],
   ];
 
   return candidates
@@ -685,7 +687,13 @@ async function openPovoApp(preferred) {
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
-    window.location.href = directTarget;
+    // a要素のクリックで発行し、Chromeのユーザー操作としてDeep Linkを渡す。
+    const directLink = document.createElement('a');
+    directLink.href = directTarget;
+    directLink.hidden = true;
+    document.body.appendChild(directLink);
+    directLink.click();
+    directLink.remove();
 
     setTimeout(() => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
