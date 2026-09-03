@@ -1,5 +1,5 @@
-const CACHE = 'povo-code-manager-v1.7';
-const ASSETS = ['./', './index.html', './style.css?v=1.0.2', './app.js?v=1.0.2', './manifest.json', './icon.svg'];
+const CACHE = 'povo-code-manager-v1.8';
+const ASSETS = ['./', './index.html', './style.css?v=1.0.3', './app.js?v=1.0.3', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
